@@ -1,0 +1,5 @@
+data_unzipped/
+data_zipped/
+output/
+.venv/
+__pycache__/
