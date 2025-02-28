@@ -56,4 +56,7 @@ def process_zipped_data(data_zipped_folder: str, data_folder: str, high_res_ct: 
                     if os.path.exists(extracted_parent_dir) and not os.listdir(extracted_parent_dir):
                         shutil.rmtree(extracted_parent_dir, ignore_errors=True)
 
+            # Delete the initially zipped folder
+            os.remove(zip_path)
+
     verbose_print(f"Processing complete. Extracted cases and NIfTI files are in: {data_folder}", verbose)
