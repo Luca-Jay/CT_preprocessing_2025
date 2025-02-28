@@ -36,25 +36,27 @@ def process_zipped_data(data_zipped_folder: str, data_folder: str, high_res_ct: 
             zip_path = os.path.join(data_zipped_folder, zip_filename)
 
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                target_parent_folder = find_parent_of_target(zip_ref, [high_res_ct, low_res_ct])
+                target_folders = [high_res_ct, low_res_ct]
+                os.makedirs(case_destination, exist_ok=True)
 
-                if target_parent_folder:
-                    os.makedirs(case_destination, exist_ok=True)
+                for file in zip_ref.namelist():
+                    if any(f"/{folder}/" in file for folder in target_folders):
+                        extracted_path = os.path.join(data_folder, file)
+                        zip_ref.extract(file, data_folder)
+                        # Move the extracted files to the case destination
+                        target_folder_name = file.split('/')[1]
+                        target_folder_path = os.path.join(data_folder, target_folder_name)
+                        if os.path.exists(target_folder_path):
+                            for item in os.listdir(target_folder_path):
+                                shutil.move(os.path.join(target_folder_path, item), case_destination)
+                            shutil.rmtree(target_folder_path, ignore_errors=True)
 
-                    for file in zip_ref.namelist():
-                        if any(f"/{folder}/" in file for folder in [high_res_ct, low_res_ct]):
-                            zip_ref.extract(file, data_folder)
-
-                    for folder in [high_res_ct, low_res_ct]:
-                        extracted_folder = os.path.join(data_folder, target_parent_folder, folder)
-                        if os.path.exists(extracted_folder):
-                            nifti_output = os.path.join(case_destination, f"{folder}.nii.gz")
-                            convert_dicom_to_nifti(extracted_folder, nifti_output, verbose=verbose)
-                            shutil.rmtree(extracted_folder, ignore_errors=True)
-
-                    extracted_parent_dir = os.path.join(data_folder, target_parent_folder)
-                    if os.path.exists(extracted_parent_dir) and not os.listdir(extracted_parent_dir):
-                        shutil.rmtree(extracted_parent_dir, ignore_errors=True)
+                for folder in target_folders:
+                    extracted_folder = os.path.join(case_destination, folder)
+                    if os.path.exists(extracted_folder):
+                        nifti_output = os.path.join(case_destination, f"{folder}.nii.gz")
+                        convert_dicom_to_nifti(extracted_folder, nifti_output, verbose=verbose)
+                        shutil.rmtree(extracted_folder, ignore_errors=True)
 
             # Delete the initially zipped folder
             os.remove(zip_path)
