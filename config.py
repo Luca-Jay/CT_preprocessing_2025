@@ -9,9 +9,9 @@ config = {
     "target_shape": (256, 256, 256),
     "min_hu": -1000,
     "max_hu": 1000,
-    "output_folder": "CT_preprocessing\output",
-    "data_zipped_folder": "CT_preprocessing\data_zipped",
-    "data_folder": "CT_preprocessing\data_unzipped",
+    "output_folder": ".\output",
+    "data_zipped_folder": ".\data_zipped",
+    "data_folder": ".\data_unzipped",
     "high_res_ct": "THIN_S.T._HEAD",
     "low_res_ct": "COR_ST_HEAD-NECK"
 }

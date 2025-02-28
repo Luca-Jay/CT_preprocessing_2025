@@ -34,11 +34,7 @@ The configuration settings are stored in the `config.py` file. Update the paths 
 
 ```python
 config = {
-    "dicom_directory": 'CT_preprocessing/data/THIN_BONE_HEAD',
-    "output_file": 'CT_preprocessing/data/THIN_BONE_HEAD.nii',
-    "ct_scan_path": "CT_preprocessing/data/THIN_BONE_HEAD.nii",
-    "segmentation_folder": "CT_preprocessing/segmentation",
-    "padding": 5,
+    "padding": 7,
     "padding_Z_lower": 2,
     "padding_Z_upper": 5,
     "padding_Y_lower": 5,
@@ -48,5 +44,9 @@ config = {
     "target_shape": (256, 256, 256),
     "min_hu": -1000,
     "max_hu": 1000,
-    "output_preprocessed_file": "CT_preprocessing/output/cropped_downsampled_normalized.nii.gz"
+    "output_folder": ".\output",
+    "data_zipped_folder": ".\data_zipped",
+    "data_folder": ".\data_unzipped",
+    "high_res_ct": "THIN_S.T._HEAD",
+    "low_res_ct": "COR_ST_HEAD-NECK"
 }
