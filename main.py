@@ -9,10 +9,11 @@ from preprocessing import (
     process_zipped_data
 )
 from utils import file_utils
-from utils.common import verbose_print, transform_coordinates
+from utils.common import verbose_print
 from config import config
 from totalsegmentator.python_api import totalsegmentator
 from typing import Tuple
+import numpy as np
 
 def preprocess_ct_scan(case_path: str, ct_scan_path: str, config: dict, verbose: bool = False) -> None:
     """
@@ -30,31 +31,34 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, config: dict, verbose:
         segmentation_path = os.path.join(case_path, "segmentation")
         if not os.path.exists(segmentation_path):
             os.makedirs(segmentation_path)
-            totalsegmentator(ct_scan_path, segmentation_path, task='headneck_bones_vessels')
+            totalsegmentator(ct_scan_path, segmentation_path, task='total', fastest=True, roi_subset=['vertebrae_C7', 'vertebrae_C3'])
             totalsegmentator(ct_scan_path, segmentation_path, task='body', fast=True)
 
-        ct_scan, hyoid_mask, cricoid_mask, body_mask, head_mask = file_utils.load_nifti_files(ct_scan_path, segmentation_path, verbose=verbose)
-        ct_data, hyoid_data, cricoid_data, head_data, body_data = file_utils.get_image_arrays(ct_scan, hyoid_mask, cricoid_mask, body_mask, head_mask, verbose=verbose)
+        ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask = file_utils.load_nifti_files(ct_scan_path, segmentation_path, verbose=verbose)
+        ct_data, vertebrae_C3_data, vertebrae_C7_data, body_data = file_utils.get_image_arrays(ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, verbose=verbose)
         
         body_data_with_padding = removing_excess.expand_mask(body_data, config["padding"], verbose=verbose)
         ct_data = removing_excess.set_values_outside_body(ct_data, body_data_with_padding, verbose=verbose)
 
-        _, hyoid_max, cricoid_min, _, skin_min, skin_max = ROI_cropping.compute_bounding_boxes(hyoid_data, cricoid_data, head_data, verbose=verbose)
-        coords = [
-            [0, 0, cricoid_min[2] + config["padding_Z_lower"]],
-            [0, 0, hyoid_max[2] + config["padding_Z_upper"]],
-            [0, skin_min[1] + config["padding_Y_lower"], 0],
-            [0, skin_max[1] + config["padding_Y_upper"], 0],
-            [skin_min[0] - config["padding_X_lower"], 0, 0],
-            [skin_max[0] + config["padding_X_upper"], 0, 0]
-        ]
-        z_min_transformed, z_max_transformed, y_min_transformed, y_max_transformed, x_min_transformed, x_max_transformed = transform_coordinates(coords, hyoid_mask.affine, ct_scan.affine, verbose=verbose)
-        ct_data = ROI_cropping.crop_ct_scan(ct_data, x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed, verbose=verbose)
+        vertebrae_C3_min, vertebrae_C3_max, vertebrae_C7_min, vertebrae_C7_max, body_min, body_max = ROI_cropping.compute_bounding_boxes(vertebrae_C3_data, vertebrae_C7_data, body_data, verbose=verbose)
+
+        # Define cropping limits
+        z_min, z_max =  vertebrae_C7_max[2] - config['padding_Z_lower'],    vertebrae_C3_max[2] + config['padding_Z_upper'] # Crop Z from underside of vertebrae_C3 to upperside of C7
+        y_min, y_max =  vertebrae_C7_min[1] + config['padding_Y_lower'],    body_max[1] + config['padding_Y_upper']  # Crop Y from back of C7 to front part of skin
+        x_min, x_max =  body_min[0] - config['padding_X_lower'],    body_max[0] + config['padding_X_upper'] # Crop X from left side of vertebrae_C3 to right side of vertebrae_C3
+                
+        ct_data = ROI_cropping.crop_ct_scan(ct_data, x_min, x_max, y_min, y_max, z_min, z_max, verbose=verbose)
         
         ct_data = downsampling.downsample_ct(ct_data, config["target_shape"], verbose=verbose)
         ct_data = normalization.normalize_hu(ct_data, config["min_hu"], config["max_hu"], verbose=verbose)
         
-        file_utils.save_nifti(ct_data, ct_scan.affine, output_file, verbose=verbose)
+        # Center the image and set image spacing to 1mm in all directions
+        center = np.array(ct_data.shape) / 2.0
+        final_affine = np.copy(ct_scan.affine)
+        final_affine[:3, :3] = np.eye(3)
+        final_affine[:3, 3] = -center
+        
+        file_utils.save_nifti(ct_data, final_affine, output_file, verbose=verbose)
 
         verbose_print(f"Preprocessing complete for: {case_name}", verbose)
     except Exception as e:

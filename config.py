@@ -7,8 +7,8 @@ config = {
     # Padding values for cropping the CT scan
     "padding_Z_lower": 2,
     "padding_Z_upper": 2,
-    "padding_Y_lower": 5,
-    "padding_Y_upper": 5,
+    "padding_Y_lower": 2,
+    "padding_Y_upper": 2,
     "padding_X_lower": 2,
     "padding_X_upper": 2,
     
