@@ -27,6 +27,6 @@ config = {
     "data_folder": ".\data_unzipped",
     
     # Names of the high and low resolution CT scan folders
-    "high_res_ct": "THIN_S.T._HEAD",
-    "low_res_ct": "COR_ST_HEAD-NECK"
+    "high_res_ct": ["BONE", "UEX", "HEAD"],
+    "low_res_ct": ["BONE", "UEX", "HEAD"]
 }

@@ -1,5 +1,6 @@
 import os
 import time
+import gc  # Import garbage collection module
 from preprocessing import (
     downsampling, 
     normalization, 
@@ -75,11 +76,14 @@ def main() -> None:
             verbose=True
         )
 
+        # Clear memory after unzipping
+        gc.collect()
+
         for case_folder in os.listdir(config["data_folder"]):
             case_path = os.path.join(config["data_folder"], case_folder)
             if os.path.isdir(case_path):
-                low_res_ct_path = os.path.join(case_path, f"{config['low_res_ct']}.nii.gz")
-                high_res_ct_path = os.path.join(case_path, f"{config['high_res_ct']}.nii.gz")
+                low_res_ct_path = os.path.join(case_path, "low_res.nii.gz")
+                high_res_ct_path = os.path.join(case_path, "high_res.nii.gz")
                 if os.path.exists(low_res_ct_path) and os.path.exists(high_res_ct_path):
                     preprocess_ct_scan(case_path, low_res_ct_path, high_res_ct_path, config, verbose=False)
 
