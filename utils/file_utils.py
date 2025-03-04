@@ -52,7 +52,6 @@ def save_nifti(scan_array: np.ndarray, affine: np.ndarray, output_file: str, ver
     except Exception as e:
         print(f"Failed to save NIfTI file: {e}")
 
-
 def convert_dicom_to_nifti(dicom_directory: str, output_file: str, verbose: bool = False) -> None:
     """
     Converts a DICOM series to NIfTI format.

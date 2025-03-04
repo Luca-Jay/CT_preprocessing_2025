@@ -1,3 +1,5 @@
+import json
+
 config = {
     # Padding values for expanding the body mask
     "padding": 7,
@@ -28,5 +30,9 @@ config = {
     
     # Names of the high and low resolution CT scan folders
     "high_res_ct": ["BONE", "UEX", "HEAD"],
-    "low_res_ct": ["BONE", "UEX", "HEAD"]
+    "low_res_ct": ["BONE", "UEX", "HEAD"],
 }
+
+# Load scan choices from a separate JSON file
+with open('scan_choices.json', 'r') as f:
+    config["scan_choice"] = json.load(f)

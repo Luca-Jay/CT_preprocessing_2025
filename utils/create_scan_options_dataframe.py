@@ -35,6 +35,6 @@ def create_scan_options_dataframe(data_zipped_folder: str) -> pd.DataFrame:
 if __name__ == "__main__":
     data_zipped_folder = "./data_zipped"  # Update this path as needed
     df = create_scan_options_dataframe(data_zipped_folder)
-    output_csv = os.path.join(data_zipped_folder, "scan_options.csv")
+    output_csv ="scan_options.csv"
     df.to_csv(output_csv, index=False)
     print(f"Scan options DataFrame saved to {output_csv}")

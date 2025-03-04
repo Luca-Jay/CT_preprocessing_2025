@@ -14,7 +14,7 @@ from config import config
 from totalsegmentator.python_api import totalsegmentator
 from typing import Tuple
 
-def preprocess_ct_scan(case_path: str, low_res_ct_path: str, high_res_ct_path: str, config: dict, verbose: bool = False) -> None:
+def preprocess_ct_scan(case_path: str, ct_scan_path: str, config: dict, verbose: bool = False) -> None:
     """
     Preprocesses a CT scan by loading NIfTI files, applying various preprocessing steps,
     and saving the preprocessed scan to an output file.
@@ -30,10 +30,10 @@ def preprocess_ct_scan(case_path: str, low_res_ct_path: str, high_res_ct_path: s
         segmentation_path = os.path.join(case_path, "segmentation")
         if not os.path.exists(segmentation_path):
             os.makedirs(segmentation_path)
-            totalsegmentator(low_res_ct_path, segmentation_path, task='headneck_bones_vessels')
-            totalsegmentator(low_res_ct_path, segmentation_path, task='body', fast=True)
+            totalsegmentator(ct_scan_path, segmentation_path, task='headneck_bones_vessels')
+            totalsegmentator(ct_scan_path, segmentation_path, task='body', fast=True)
 
-        ct_scan, hyoid_mask, cricoid_mask, body_mask, head_mask = file_utils.load_nifti_files(high_res_ct_path, segmentation_path, verbose=verbose)
+        ct_scan, hyoid_mask, cricoid_mask, body_mask, head_mask = file_utils.load_nifti_files(ct_scan_path, segmentation_path, verbose=verbose)
         ct_data, hyoid_data, cricoid_data, head_data, body_data = file_utils.get_image_arrays(ct_scan, hyoid_mask, cricoid_mask, body_mask, head_mask, verbose=verbose)
         
         body_data_with_padding = removing_excess.expand_mask(body_data, config["padding"], verbose=verbose)
@@ -71,8 +71,7 @@ def main() -> None:
         process_zipped_data.process_zipped_data(
             config["data_zipped_folder"], 
             config["data_folder"], 
-            config["high_res_ct"],
-            config["low_res_ct"],
+            config["scan_choice"],
             verbose=True
         )
 
@@ -82,10 +81,9 @@ def main() -> None:
         for case_folder in os.listdir(config["data_folder"]):
             case_path = os.path.join(config["data_folder"], case_folder)
             if os.path.isdir(case_path):
-                low_res_ct_path = os.path.join(case_path, "low_res.nii.gz")
-                high_res_ct_path = os.path.join(case_path, "high_res.nii.gz")
-                if os.path.exists(low_res_ct_path) and os.path.exists(high_res_ct_path):
-                    preprocess_ct_scan(case_path, low_res_ct_path, high_res_ct_path, config, verbose=False)
+                ct_scan_path = os.path.join(case_path, "ct_scan.nii.gz")
+                if os.path.exists(ct_scan_path):
+                    preprocess_ct_scan(case_path, ct_scan_path, config, verbose=False)
 
         print("Preprocessing pipeline complete.")
     except Exception as e:

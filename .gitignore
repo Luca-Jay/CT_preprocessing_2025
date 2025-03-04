@@ -3,3 +3,5 @@ data_zipped/
 output/
 .venv/
 __pycache__/
+scan_choices.json
+scan_options.csv
