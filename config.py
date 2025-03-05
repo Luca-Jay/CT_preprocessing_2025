@@ -13,7 +13,7 @@ config = {
     "padding_X_upper": 2,
     
     # Target shape for downsampling the CT scan
-    "target_shape": (256, 256, 256),
+    "target_shape": (128, 128, 128),
     
     # Hounsfield Units (HU) range for normalization
     "min_hu": -1000,

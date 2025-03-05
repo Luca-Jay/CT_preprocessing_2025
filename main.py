@@ -31,28 +31,29 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, config: dict, verbose:
         segmentation_path = os.path.join(case_path, "segmentation")
         if not os.path.exists(segmentation_path):
             os.makedirs(segmentation_path)
-            totalsegmentator(ct_scan_path, segmentation_path, task='total', fastest=True, roi_subset=['vertebrae_C7', 'vertebrae_C3'])
-            totalsegmentator(ct_scan_path, segmentation_path, task='body', fast=True)
+            totalsegmentator(ct_scan_path, segmentation_path, task='total', fastest=True, roi_subset=['vertebrae_C7', 'vertebrae_C3', 'skull'], quiet=not(verbose))
+            totalsegmentator(ct_scan_path, segmentation_path, task='body', fast=True, quiet=not(verbose))
 
-        ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask = file_utils.load_nifti_files(ct_scan_path, segmentation_path, verbose=verbose)
-        ct_data, vertebrae_C3_data, vertebrae_C7_data, body_data = file_utils.get_image_arrays(ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, verbose=verbose)
+
+        ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, skull_mask = file_utils.load_nifti_files(ct_scan_path, segmentation_path, verbose=verbose)
+        ct_data, vertebrae_C3_data, vertebrae_C7_data, body_data, skull_data = file_utils.get_image_arrays(ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, skull_mask, verbose=verbose)
         
         body_data_with_padding = removing_excess.expand_mask(body_data, config["padding"], verbose=verbose)
         ct_data = removing_excess.set_values_outside_body(ct_data, body_data_with_padding, verbose=verbose)
 
-        vertebrae_C3_min, vertebrae_C3_max, vertebrae_C7_min, vertebrae_C7_max, body_min, body_max = ROI_cropping.compute_bounding_boxes(vertebrae_C3_data, vertebrae_C7_data, body_data, verbose=verbose)
+        vertebrae_C3_min, vertebrae_C3_max, vertebrae_C7_min, vertebrae_C7_max, body_min, body_max, skull_min, skull_max = ROI_cropping.compute_bounding_boxes(vertebrae_C3_data, vertebrae_C7_data, body_data, skull_data, verbose=verbose)
 
         # Define cropping limits
-        z_min, z_max =  vertebrae_C7_max[2] - config['padding_Z_lower'],    vertebrae_C3_max[2] + config['padding_Z_upper'] # Crop Z from underside of vertebrae_C3 to upperside of C7
-        y_min, y_max =  vertebrae_C7_min[1] + config['padding_Y_lower'],    body_max[1] + config['padding_Y_upper']  # Crop Y from back of C7 to front part of skin
-        x_min, x_max =  body_min[0] - config['padding_X_lower'],    body_max[0] + config['padding_X_upper'] # Crop X from left side of vertebrae_C3 to right side of vertebrae_C3
+        z_min, z_max =  vertebrae_C7_min[2] - config['padding_Z_lower'],    vertebrae_C3_max[2] + config['padding_Z_upper'] # Crop Z from underside of vertebrae_C3 to upperside of C7
+        y_min, y_max =  vertebrae_C7_min[1] - config['padding_Y_lower'],    body_max[1] + config['padding_Y_upper']  # Crop Y from back of C7 to front part of skin
+        x_min, x_max =  skull_min[0] - config['padding_X_lower'],    skull_max[0] + config['padding_X_upper'] # Crop X from left side of skull to right side of skull
                 
         ct_data = ROI_cropping.crop_ct_scan(ct_data, x_min, x_max, y_min, y_max, z_min, z_max, verbose=verbose)
         
         ct_data = downsampling.downsample_ct(ct_data, config["target_shape"], verbose=verbose)
         ct_data = normalization.normalize_hu(ct_data, config["min_hu"], config["max_hu"], verbose=verbose)
         
-        # Center the image and set image spacing to 1mm in all directions
+        # Center the image and resample to 1mm voxels
         center = np.array(ct_data.shape) / 2.0
         final_affine = np.copy(ct_scan.affine)
         final_affine[:3, :3] = np.eye(3)
