@@ -10,7 +10,7 @@ def compute_bounding_boxes(vertebrae_C3_data: np.ndarray, vertebrae_C7_data: np.
     verbose_print("Computing bounding boxes for masks...", verbose)
     vertebrae_C3_min, vertebrae_C3_max = find_bounding_box(vertebrae_C3_data)
     vertebrae_C7_min, vertebrae_C7_max = find_bounding_box(vertebrae_C7_data)
-    body_min, body_max = find_bounding_box(body_data[:, :, vertebrae_C7_max[2]:vertebrae_C3_max[2]])
+    body_min, body_max = find_bounding_box(body_data[:, :, vertebrae_C7_max[2]:vertebrae_C3_min[2]])
     skull_min, skull_max = find_bounding_box(skull_data)
     verbose_print("Bounding boxes computed.", verbose)
     return vertebrae_C3_min, vertebrae_C3_max, vertebrae_C7_min, vertebrae_C7_max, body_min, body_max, skull_min, skull_max

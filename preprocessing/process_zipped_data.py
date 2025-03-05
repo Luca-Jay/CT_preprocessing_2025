@@ -35,35 +35,47 @@ def process_zipped_data(data_zipped_folder: str, data_folder: str, scan_choice: 
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 os.makedirs(case_destination, exist_ok=True)
 
-                # Find target folder inside the ZIP
-                target_folder = scan_choice.get(case_name)
-                if not target_folder:
-                    verbose_print(f"No target folder specified for {case_name} in config.", verbose)
+                # Find target folders inside the ZIP
+                segment_folder = scan_choice.get(f"{case_name}-SEGMENT")
+                scan_folder = scan_choice.get(f"{case_name}-SCAN")
+                if not segment_folder or not scan_folder:
+                    verbose_print(f"No target folders specified for {case_name} in config.", verbose)
                     continue
 
-                matched_folder = find_target_folder(zip_ref, target_folder)
-                if not matched_folder:
-                    verbose_print(f"No matching folder found in {zip_filename} for target {target_folder}", verbose)
+                matched_segment_folder = find_target_folder(zip_ref, segment_folder)
+                matched_scan_folder = find_target_folder(zip_ref, scan_folder)
+                if not matched_segment_folder or not matched_scan_folder:
+                    verbose_print(f"No matching folders found in {zip_filename} for targets {segment_folder} and {scan_folder}", verbose)
                     continue
 
-                # Extract only the relevant folder
+                # Extract only the relevant folders
                 temp_extract_path = os.path.join(data_folder, "temp_extract")
                 os.makedirs(temp_extract_path, exist_ok=True)
 
                 for file in zip_ref.namelist():
-                    if file.startswith(matched_folder):
+                    if file.startswith(matched_segment_folder) or file.startswith(matched_scan_folder):
                         zip_ref.extract(file, temp_extract_path)
 
                 # Move extracted files to the correct case destination
-                extracted_folder = os.path.join(temp_extract_path, matched_folder)
-                if os.path.exists(extracted_folder):
-                    correct_destination = os.path.join(case_destination, target_folder)
-                    shutil.move(extracted_folder, correct_destination)
+                extracted_segment_folder = os.path.join(temp_extract_path, matched_segment_folder)
+                extracted_scan_folder = os.path.join(temp_extract_path, matched_scan_folder)
+                if os.path.exists(extracted_segment_folder):
+                    correct_segment_destination = os.path.join(case_destination, segment_folder)
+                    shutil.move(extracted_segment_folder, correct_segment_destination)
 
                     # Convert extracted DICOM folders to NIfTI
-                    nifti_output = os.path.join(case_destination, "ct_scan.nii.gz")
-                    convert_dicom_to_nifti(correct_destination, nifti_output, verbose=verbose)
-                    shutil.rmtree(correct_destination, ignore_errors=True)  # Cleanup
+                    nifti_output_segment = os.path.join(case_destination, "CT_scan_segmentation.nii.gz")
+                    convert_dicom_to_nifti(correct_segment_destination, nifti_output_segment, verbose=verbose)
+                    shutil.rmtree(correct_segment_destination, ignore_errors=True)  # Cleanup
+
+                if os.path.exists(extracted_scan_folder) and extracted_scan_folder != extracted_segment_folder:
+                    correct_scan_destination = os.path.join(case_destination, scan_folder)
+                    shutil.move(extracted_scan_folder, correct_scan_destination)
+
+                    # Convert extracted DICOM folders to NIfTI
+                    nifti_output_scan = os.path.join(case_destination, "CT_scan.nii.gz")
+                    convert_dicom_to_nifti(correct_scan_destination, nifti_output_scan, verbose=verbose)
+                    shutil.rmtree(correct_scan_destination, ignore_errors=True)  # Cleanup
 
                 shutil.rmtree(temp_extract_path, ignore_errors=True)  # Cleanup temp folder
 

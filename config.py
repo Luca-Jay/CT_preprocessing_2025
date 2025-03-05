@@ -13,7 +13,7 @@ config = {
     "padding_X_upper": 2,
     
     # Target shape for downsampling the CT scan
-    "target_shape": (128, 128, 128),
+    "target_shape": (256, 256, 256),
     
     # Hounsfield Units (HU) range for normalization
     "min_hu": -1000,
@@ -27,10 +27,6 @@ config = {
     
     # Folder for unzipped data
     "data_folder": ".\data_unzipped",
-    
-    # Names of the high and low resolution CT scan folders
-    "high_res_ct": ["BONE", "UEX", "HEAD"],
-    "low_res_ct": ["BONE", "UEX", "HEAD"],
 }
 
 # Load scan choices from a separate JSON file
