@@ -23,7 +23,7 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
     """
     try:
         case_name = os.path.basename(case_path)
-        output_file = os.path.join(config["output_folder"], f"{case_name}_preprocessed.nii.gz")
+        output_file = os.path.join(config["output_folder"], f"{case_name}_NORMAL.nii.gz")
         
         if os.path.exists(output_file):
             verbose_print(f"Preprocessed scan already exists for {case_path}.", verbose)
@@ -35,7 +35,7 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
             totalsegmentator(segmentation_ct_path, segmentation_path, task='total', fastest=True, roi_subset=['vertebrae_C7', 'vertebrae_C3', 'skull'], quiet=not(verbose))
             totalsegmentator(segmentation_ct_path, segmentation_path, task='body', fast=True, quiet=not(verbose))
 
-        ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, skull_mask = file_utils.load_nifti_files(segmentation_ct_path, segmentation_path, verbose=verbose)
+        ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, skull_mask = file_utils.load_nifti_files(ct_scan_path, segmentation_path, verbose=verbose)
         ct_data, vertebrae_C3_data, vertebrae_C7_data, body_data, skull_data = file_utils.get_image_arrays(ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, skull_mask, verbose=verbose)
         
         # Setting values outside the body to -1000 HU
@@ -70,14 +70,14 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
 
         # Downsample and normalize the CT scan        
         ct_data = downsampling.downsample_ct(ct_data, config["target_shape"], verbose=verbose)
-        #ct_data = normalization.normalize_hu(ct_data, config["min_hu"], config["max_hu"], verbose=verbose)
+        ct_data = normalization.normalize_hu(ct_data, config["min_hu"], config["max_hu"], verbose=verbose)
         
         # Center the image and resample to 1mm voxels
         center = np.array(ct_data.shape) / 2.0
         final_affine = np.copy(ct_scan.affine)
         final_affine[:3, :3] = np.eye(3)
         final_affine[:3, 3] = -center
-        
+        print(ct_data.shape)
         file_utils.save_nifti(ct_data, final_affine, output_file, verbose=verbose)
 
         verbose_print(f"Preprocessing complete for: {case_name}", verbose)
