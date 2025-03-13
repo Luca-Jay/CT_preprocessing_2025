@@ -20,17 +20,13 @@ config = {
     "max_hu": 1000,
     
     # Output folder for saving preprocessed scans
-    "output_folder": ".\output",
+    "output_folder": ".\PREPROCESSED_CT_SCANS",
     
     # Folder containing zipped data
     "data_zipped_folder": ".\data_zipped",
     
     # Folder for unzipped data
     "data_folder": ".\data_unzipped",
-    
-    # Names of the high and low resolution CT scan folders
-    "high_res_ct": ["BONE", "UEX", "HEAD"],
-    "low_res_ct": ["BONE", "UEX", "HEAD"],
 }
 
 # Load scan choices from a separate JSON file
