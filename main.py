@@ -1,6 +1,7 @@
 import os
 import time
 import gc  # Import garbage collection module
+import pandas as pd  # Import pandas for DataFrame
 from preprocessing import (
     downsampling, 
     normalization, 
@@ -15,12 +16,17 @@ from totalsegmentator.python_api import totalsegmentator
 from typing import Tuple
 import numpy as np
 import nibabel as nib
+from utils.segmentation_checker import check_segmentation_files  # Import the new function
+
+# Initialize a DataFrame to store errors
+error_log = []
 
 def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: str, config: dict, verbose: bool = False) -> None:
     """
     Preprocesses a CT scan by loading NIfTI files, applying various preprocessing steps,
     and saving the preprocessed scan to an output file.
     """
+    global error_log
     try:
         case_name = os.path.basename(case_path)
         output_file = os.path.join(config["output_folder"], f"{case_name}_NORMAL.nii.gz")
@@ -32,11 +38,24 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
         segmentation_path = os.path.join(case_path, "segmentation")
         if not os.path.exists(segmentation_path):
             os.makedirs(segmentation_path)
-            totalsegmentator(segmentation_ct_path, segmentation_path, task='total', fastest=True, roi_subset=['vertebrae_C7', 'vertebrae_C3', 'skull'], quiet=not(verbose))
-            totalsegmentator(segmentation_ct_path, segmentation_path, task='body', fast=True, quiet=not(verbose))
+            try:
+                totalsegmentator(segmentation_ct_path, segmentation_path, task='total', fastest=True, roi_subset=['vertebrae_C7', 'vertebrae_C3', 'skull'], quiet=not(verbose))
+                totalsegmentator(segmentation_ct_path, segmentation_path, task='body', fast=True, quiet=not(verbose))
+            except Exception as e:
+                error_log.append([case_name, str(e)])
+                return
 
-        ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, skull_mask = file_utils.load_nifti_files(ct_scan_path, segmentation_path, verbose=verbose)
-        ct_data, vertebrae_C3_data, vertebrae_C7_data, body_data, skull_data = file_utils.get_image_arrays(ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, skull_mask, verbose=verbose)
+        # Check if all required segmentation files are present
+        if not check_segmentation_files(segmentation_path):
+            error_log.append([case_name, "Missing segmentation files"])
+            return
+
+        try:
+            ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, skull_mask = file_utils.load_nifti_files(ct_scan_path, segmentation_path, verbose=verbose)
+            ct_data, vertebrae_C3_data, vertebrae_C7_data, body_data, skull_data = file_utils.get_image_arrays(ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, skull_mask, verbose=verbose)
+        except Exception as e:
+            error_log.append([case_name, str(e)])
+            return
         
         # Setting values outside the body to -1000 HU
         if (body_mask.affine != ct_scan.affine).any():
@@ -82,13 +101,16 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
 
         verbose_print(f"Preprocessing complete for: {case_name}", verbose)
     except Exception as e:
+        error_log = error_log.append([case_name, str(e)])
         print(f"An error occurred while preprocessing {case_path}: {e}")
+        return
 
 def main() -> None:
     """
     Main function to start the preprocessing pipeline. It processes zipped data,
     iterates through each case folder, and preprocesses the CT scans.
     """
+    global error_log
     print("Starting preprocessing pipeline...")
     start_time = time.time()
     try:
@@ -107,8 +129,7 @@ def main() -> None:
             if os.path.isdir(case_path):
                 ct_scan_path = os.path.join(case_path, "CT_scan.nii.gz")
                 segmentation_ct_path = os.path.join(case_path, "CT_scan_segmentation.nii.gz")
-                if os.path.exists(ct_scan_path):
-                    preprocess_ct_scan(case_path, ct_scan_path, segmentation_ct_path, config, verbose=True)
+                preprocess_ct_scan(case_path, ct_scan_path, segmentation_ct_path, config, verbose=True)
 
         print("Preprocessing pipeline complete.")
     except Exception as e:
@@ -117,6 +138,9 @@ def main() -> None:
     end_time = time.time()
     elapsed_time = end_time - start_time
     print(f"Total execution time: {elapsed_time:.2f} seconds")
+    # Save error log to CSV
+    error_log_df = pd.DataFrame(error_log, columns=["Case", "Error"])
+    error_log_df.to_csv("error_log.csv", index=False)
 
 if __name__ == "__main__": 
     main()
