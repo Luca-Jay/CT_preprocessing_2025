@@ -3,12 +3,14 @@ from utils.common import verbose_print
 import numpy as np
 from typing import Tuple
 
-def downsample_ct(scan_array: np.ndarray, target_shape: Tuple[int, int, int], verbose: bool = False) -> np.ndarray:
-    """
-    Downsamples the CT scan array to the specified target shape.
-    """
-    verbose_print(f"Downsampling CT scan to target shape {target_shape}...", verbose)
-    zoom_factors = [t / s for t, s in zip(target_shape, scan_array.shape)]
-    downsampled_scan = scipy.ndimage.zoom(scan_array, zoom_factors, order=1)
-    verbose_print("Downsampling complete.", verbose)
+def downsample_ct(scan_array: np.ndarray, target_shape: Tuple[int, int, int], order:int = 3, verbose=True) -> np.ndarray:
+    verbose_print(f"Original shape: {scan_array.shape}", verbose=True)
+    verbose_print(f"Target shape: {target_shape}", verbose=True)
+
+    zoom_factors = np.array(target_shape) / np.array(scan_array.shape)
+    verbose_print(f"Zoom factors: {zoom_factors}", verbose=True)
+
+    downsampled_scan = scipy.ndimage.zoom(scan_array, zoom_factors, order=3)
+    verbose_print("Downsampling (cubic interpolation) complete.", verbose=True)
+
     return downsampled_scan

@@ -5,4 +5,8 @@ output/
 __pycache__/
 scan_choices.json
 scan_options.csv
+<<<<<<< HEAD
 PREPROCESSED_CT_SCANS/
+=======
+PREPROCESSED_CT_SCANS/
+>>>>>>> a660cfe48afa59f77ca9c40344ba0a3d69dfce21
