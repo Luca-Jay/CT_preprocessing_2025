@@ -3,17 +3,27 @@ import nibabel as nib
 from utils.common import verbose_print, find_bounding_box, transform_coordinates
 from typing import Tuple, List
 
-def compute_bounding_boxes(vertebrae_C3_data: np.ndarray, vertebrae_C7_data: np.ndarray, body_data: np.ndarray, skull_data: np.ndarray, verbose: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def compute_bounding_boxes(mask_data: dict, roi_bounds: dict, verbose: bool = False) -> dict:
     """
-    Computes the bounding boxes for the vertebrae_C3, vertebrae_C7, body, and skull masks.
+    Computes the bounding boxes for the masks based on the config bounds.
     """
     verbose_print("Computing bounding boxes for masks...", verbose)
-    vertebrae_C3_min, vertebrae_C3_max = find_bounding_box(vertebrae_C3_data)
-    vertebrae_C7_min, vertebrae_C7_max = find_bounding_box(vertebrae_C7_data)
-    body_min, body_max = find_bounding_box(body_data[:, :, vertebrae_C7_max[2]:vertebrae_C3_min[2]])
-    skull_min, skull_max = find_bounding_box(skull_data)
+    bounding_boxes = {}
+
+    # Compute bounding boxes for each label
+    for label, data in mask_data.items():
+        min_bounds, max_bounds = find_bounding_box(data)
+        bounding_boxes[label] = {"min": min_bounds, "max": max_bounds}
+
+    # Extract the required bounds from the computed bounding boxes
+    for bound, settings in roi_bounds.items():
+        if bound != "outside":
+            label = settings["label"]
+            bound_type = settings["type"]
+            bounding_boxes[bound] = bounding_boxes[label][bound_type][{"left": 0, "right": 0, "up": 2, "down": 2, "front": 1, "back": 1}[bound]]
+
     verbose_print("Bounding boxes computed.", verbose)
-    return vertebrae_C3_min, vertebrae_C3_max, vertebrae_C7_min, vertebrae_C7_max, body_min, body_max, skull_min, skull_max
+    return bounding_boxes
 
 def crop_ct_scan(ct_data: np.ndarray, x_min: int, x_max: int, y_min: int, y_max: int, z_min: int, z_max: int, verbose: bool = False) -> np.ndarray:
     """

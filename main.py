@@ -12,11 +12,10 @@ from preprocessing import (
 from utils import file_utils
 from utils.common import verbose_print, transform_coordinates
 from config import config
-from totalsegmentator.python_api import totalsegmentator
 from typing import Tuple
 import numpy as np
 import nibabel as nib
-from utils.segmentation_checker import check_segmentation_files  # Import the new function
+from preprocessing.segmentation import run_segmentation  # Import the segmentation function
 
 # Initialize a DataFrame to store errors
 error_log = []
@@ -38,51 +37,48 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
         segmentation_path = os.path.join(case_path, "segmentation")
         if not os.path.exists(segmentation_path):
             os.makedirs(segmentation_path)
-            try:
-                totalsegmentator(segmentation_ct_path, segmentation_path, task='total', fastest=True, roi_subset=['vertebrae_C7', 'vertebrae_C3', 'skull'], quiet=not(verbose))
-                totalsegmentator(segmentation_ct_path, segmentation_path, task='body', fast=True, quiet=not(verbose))
-            except Exception as e:
-                error_log.append([case_name, str(e)])
+            if not run_segmentation(segmentation_ct_path, segmentation_path, config["roi_bounds"], verbose=verbose):
+                error_log.append([case_name, "Segmentation failed or missing files"])
                 return
 
-        # Check if all required segmentation files are present
-        if not check_segmentation_files(segmentation_path):
-            error_log.append([case_name, "Missing segmentation files"])
-            return
-
         try:
-            ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, skull_mask = file_utils.load_nifti_files(ct_scan_path, segmentation_path, verbose=verbose)
-            ct_data, vertebrae_C3_data, vertebrae_C7_data, body_data, skull_data = file_utils.get_image_arrays(ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, skull_mask, verbose=verbose)
+            # Load NIfTI files dynamically based on the labels in the config
+            nifti_files = file_utils.load_nifti_files_dynamic(ct_scan_path, segmentation_path, config["roi_bounds"], verbose=verbose)
+            ct_scan = nifti_files.pop("ct_scan")
+            ct_data = ct_scan.get_fdata()
+            mask_data = {label: nifti_files[label].get_fdata() for label in nifti_files}
         except Exception as e:
             error_log.append([case_name, str(e)])
             return
         
         # Setting values outside the body to -1000 HU
-        if (body_mask.affine != ct_scan.affine).any():
+        body_mask = nifti_files.get("body")
+        if body_mask and (body_mask.affine != ct_scan.affine).any():
             body_data_transformed = nib.processing.resample_from_to(body_mask, ct_scan, order=1).get_fdata()
         else:
-            body_data_transformed = body_data
-        body_data_with_padding = removing_excess.expand_mask(body_data_transformed, config["padding"], verbose=verbose)
-        ct_data = removing_excess.set_values_outside_body(ct_data, body_data_with_padding, verbose=verbose)
+            body_data_transformed = mask_data.get("body")
+        if body_data_transformed is not None:
+            body_data_with_padding = removing_excess.expand_mask(body_data_transformed, config["roi_bounds"]["outside"]["padding"], verbose=verbose)
+            ct_data = removing_excess.set_values_outside_body(ct_data, body_data_with_padding, verbose=verbose)
 
         # Compute bounding boxes for masks
-        vertebrae_C3_min, vertebrae_C3_max, vertebrae_C7_min, vertebrae_C7_max, body_min, body_max, skull_min, skull_max = ROI_cropping.compute_bounding_boxes(vertebrae_C3_data, vertebrae_C7_data, body_data, skull_data, verbose=verbose)
+        bounding_boxes = ROI_cropping.compute_bounding_boxes(mask_data, config["roi_bounds"], verbose=verbose)
 
-        # Define cropping limits
-        z_min, z_max =  vertebrae_C7_min[2] - config['padding_Z_lower'],    vertebrae_C3_max[2] + config['padding_Z_upper'] # Crop Z from underside of vertebrae_C3 to upperside of C7
-        y_min, y_max =  vertebrae_C7_min[1] - config['padding_Y_lower'],    body_max[1] + config['padding_Y_upper']  # Crop Y from back of C7 to front part of skin
-        x_min, x_max =  skull_min[0] - config['padding_X_lower'],    skull_max[0] + config['padding_X_upper'] # Crop X from left side of skull to right side of skull
+        # Define cropping limits using the bounding boxes and config bounds
+        z_min, z_max = bounding_boxes["down"], bounding_boxes["up"]
+        y_min, y_max = bounding_boxes["back"], bounding_boxes["front"]
+        x_min, x_max = bounding_boxes["left"], bounding_boxes["right"]
 
         # Transform coordinates from segmentation scan to high res scan        
         coords = [
-            [0, 0, z_min],
-            [0, 0, z_max],
-            [0, y_min, 0],
-            [0, y_max, 0],
-            [x_min, 0, 0],
-            [x_max, 0, 0]
+            [0, 0, z_min-config["roi_bounds"]["down"]["padding"]],
+            [0, 0, z_max+config["roi_bounds"]["up"]["padding"]],
+            [0, y_min-config["roi_bounds"]["back"]["padding"], 0],
+            [0, y_max+config["roi_bounds"]["front"]["padding"], 0],
+            [x_min-config["roi_bounds"]["left"]["padding"], 0, 0],
+            [x_max+config["roi_bounds"]["right"]["padding"], 0, 0]
         ]
-        z_min_transformed, z_max_transformed, y_min_transformed, y_max_transformed, x_min_transformed, x_max_transformed = transform_coordinates(coords, body_mask.affine, ct_scan.affine, verbose=verbose)
+        z_min_transformed, z_max_transformed, y_min_transformed, y_max_transformed, x_min_transformed, x_max_transformed = transform_coordinates(coords, body_mask.affine if body_mask else ct_scan.affine, ct_scan.affine, verbose=verbose)
         
         # Crop CT scan using ROI bounds
         ct_data = ROI_cropping.crop_ct_scan(ct_data, x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed, verbose=verbose)

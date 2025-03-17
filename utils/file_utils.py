@@ -3,7 +3,7 @@ import nibabel as nib
 import dicom2nifti
 import nibabel.processing
 from utils.common import verbose_print
-from typing import Tuple
+from typing import Tuple, Dict
 import numpy as np
 
 def load_nifti_files(ct_scan_path: str, segmentation_folder: str, verbose: bool = False) -> Tuple[nib.Nifti1Image, nib.Nifti1Image, nib.Nifti1Image, nib.Nifti1Image, nib.Nifti1Image]:
@@ -23,19 +23,33 @@ def load_nifti_files(ct_scan_path: str, segmentation_folder: str, verbose: bool 
         print(f"Failed to load NIfTI files: {e}")
         raise
 
-def get_image_arrays(ct_scan: nib.Nifti1Image, vertebrae_C3_mask: nib.Nifti1Image, vertebrae_C7_mask: nib.Nifti1Image, body_mask: nib.Nifti1Image, skull_mask: nib.Nifti1Image, verbose: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def load_nifti_files_dynamic(ct_scan_path: str, segmentation_folder: str, roi_bounds: dict, verbose: bool = False) -> Dict[str, nib.Nifti1Image]:
+    """
+    Dynamically loads NIfTI files for the CT scan and segmentation masks based on the provided roi_bounds.
+    """
+    try:
+        verbose_print("Loading NIfTI files...", verbose)
+        nifti_files = {"ct_scan": nib.load(ct_scan_path, mmap=True)}
+        for bound in roi_bounds.values():
+            label = bound["label"]
+            if label not in nifti_files:
+                nifti_files[label] = nib.load(os.path.join(segmentation_folder, f"{label}.nii.gz"), mmap=True)
+        verbose_print("NIfTI files loaded successfully.", verbose)
+        return nifti_files
+    except Exception as e:
+        print(f"Failed to load NIfTI files: {e}")
+        raise
+
+def get_image_arrays(ct_scan: nib.Nifti1Image, nifti_files: Dict[str, nib.Nifti1Image], verbose: bool = False) -> Dict[str, np.ndarray]:
     """
     Extracts image arrays from the loaded NIfTI files.
     """
     try:
         verbose_print("Extracting image arrays from NIfTI files...", verbose)
         ct_data = ct_scan.get_fdata()
-        vertebrae_C3_data = vertebrae_C3_mask.get_fdata()
-        vertebrae_C7_data = vertebrae_C7_mask.get_fdata()
-        body_data = body_mask.get_fdata()
-        skull_data = skull_mask.get_fdata()
+        mask_data = {label: nifti_file.get_fdata() for label, nifti_file in nifti_files.items() if label != "ct_scan"}
         verbose_print("Image arrays extracted.", verbose)
-        return ct_data, vertebrae_C3_data, vertebrae_C7_data, body_data, skull_data
+        return {"ct_data": ct_data, **mask_data}
     except Exception as e:
         print(f"Failed to extract image arrays: {e}")
         raise
