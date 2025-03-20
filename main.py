@@ -85,7 +85,12 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
             [x_min-config["roi_bounds"]["left"]["padding"], 0, 0],
             [x_max+config["roi_bounds"]["right"]["padding"], 0, 0]
         ]
-        z_min_transformed, z_max_transformed, y_min_transformed, y_max_transformed, x_min_transformed, x_max_transformed = transform_coordinates(coords, body_mask.affine if body_mask else ct_scan.affine, ct_scan.affine, verbose=verbose)
+        z_min_transformed, z_max_transformed, y_min_transformed, y_max_transformed, x_min_transformed, x_max_transformed = transform_coordinates(
+            coords, 
+            torch.tensor(body_mask.affine if body_mask else ct_scan.affine, dtype=torch.float32), 
+            torch.tensor(ct_scan.affine, dtype=torch.float32), 
+            verbose=verbose
+        )
         
         # Crop CT scan using ROI bounds
         ct_tensor = ROI_cropping.crop_ct_scan(ct_tensor, x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed, verbose=verbose)
@@ -96,11 +101,11 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
         
         # Center the image and resample to 1mm voxels
         center = torch.tensor(ct_tensor.shape, dtype=torch.float32) / 2.0
-        final_affine = torch.tensor(ct_scan.affine, dtype=torch.float32)
+        final_affine = ct_scan.affine
         final_affine[:3, :3] = torch.eye(3)
         final_affine[:3, 3] = -center
         print(ct_tensor.shape)
-        file_utils.save_nifti(ct_tensor.cpu().numpy(), final_affine.cpu().numpy(), output_file, verbose=verbose)
+        file_utils.save_nifti(ct_tensor.cpu().numpy(), final_affine, output_file, verbose=verbose)
 
         verbose_print(f"Preprocessing complete for: {case_name}", verbose)
     except Exception as e:
