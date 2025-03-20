@@ -16,6 +16,7 @@ from typing import Tuple
 import numpy as np
 import nibabel as nib
 from preprocessing.segmentation import run_segmentation  # Import the segmentation function
+import torch
 
 # Initialize a DataFrame to store errors
 error_log = []
@@ -51,6 +52,11 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
             error_log.append([case_name, str(e)])
             return
         
+        # Convert to PyTorch tensor and move to appropriate device
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        ct_tensor = torch.tensor(ct_data, dtype=torch.float32).to(device)
+        mask_tensors = {label: torch.tensor(mask_data[label], dtype=torch.float32).to(device) for label in mask_data}
+
         # Setting values outside the body to -1000 HU
         body_mask = nifti_files.get("body")
         if body_mask and (body_mask.affine != ct_scan.affine).any():
@@ -58,11 +64,12 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
         else:
             body_data_transformed = mask_data.get("body")
         if body_data_transformed is not None:
-            body_data_with_padding = removing_excess.expand_mask(body_data_transformed, config["roi_bounds"]["outside"]["padding"], verbose=verbose)
-            ct_data = removing_excess.set_values_outside_body(ct_data, body_data_with_padding, verbose=verbose)
+            body_tensor = torch.tensor(body_data_transformed, dtype=torch.float32).to(device)
+            body_data_with_padding = removing_excess.expand_mask(body_tensor, config["roi_bounds"]["outside"]["padding"], verbose=verbose)
+            ct_tensor = removing_excess.set_values_outside_body(ct_tensor, body_data_with_padding, verbose=verbose)
 
         # Compute bounding boxes for masks
-        bounding_boxes = ROI_cropping.compute_bounding_boxes(mask_data, config["roi_bounds"], verbose=verbose)
+        bounding_boxes = ROI_cropping.compute_bounding_boxes(mask_tensors, config["roi_bounds"], verbose=verbose)
 
         # Define cropping limits using the bounding boxes and config bounds
         z_min, z_max = bounding_boxes["down"], bounding_boxes["up"]
@@ -81,19 +88,19 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
         z_min_transformed, z_max_transformed, y_min_transformed, y_max_transformed, x_min_transformed, x_max_transformed = transform_coordinates(coords, body_mask.affine if body_mask else ct_scan.affine, ct_scan.affine, verbose=verbose)
         
         # Crop CT scan using ROI bounds
-        ct_data = ROI_cropping.crop_ct_scan(ct_data, x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed, verbose=verbose)
+        ct_tensor = ROI_cropping.crop_ct_scan(ct_tensor, x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed, verbose=verbose)
 
         # Downsample and normalize the CT scan        
-        ct_data = downsampling.downsample_ct(ct_data, config["target_shape"], verbose=verbose)
-        ct_data = normalization.normalize_hu(ct_data, config["min_hu"], config["max_hu"], verbose=verbose)
+        ct_tensor = downsampling.downsample_ct(ct_tensor, config["target_shape"], verbose=verbose)
+        ct_tensor = normalization.normalize_hu(ct_tensor, config["min_hu"], config["max_hu"], verbose=verbose)
         
         # Center the image and resample to 1mm voxels
-        center = np.array(ct_data.shape) / 2.0
-        final_affine = np.copy(ct_scan.affine)
-        final_affine[:3, :3] = np.eye(3)
+        center = torch.tensor(ct_tensor.shape, dtype=torch.float32) / 2.0
+        final_affine = torch.tensor(ct_scan.affine, dtype=torch.float32)
+        final_affine[:3, :3] = torch.eye(3)
         final_affine[:3, 3] = -center
-        print(ct_data.shape)
-        file_utils.save_nifti(ct_data, final_affine, output_file, verbose=verbose)
+        print(ct_tensor.shape)
+        file_utils.save_nifti(ct_tensor.cpu().numpy(), final_affine.cpu().numpy(), output_file, verbose=verbose)
 
         verbose_print(f"Preprocessing complete for: {case_name}", verbose)
     except Exception as e:

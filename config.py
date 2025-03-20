@@ -20,12 +20,12 @@ config = {
     
     # Bounds for ROI cropping
     "roi_bounds": {
-        "left": {"label": "thyroid_cartilage", "task": "headneck_bones_vessels", "type": "min", "padding": 5},
-        "right": {"label": "thyroid_cartilage", "task": "headneck_bones_vessels", "type": "max", "padding": 5},
+        "left": {"label": "thyroid_cartilage", "task": "headneck_bones_vessels", "type": "min", "padding": 15},
+        "right": {"label": "thyroid_cartilage", "task": "headneck_bones_vessels", "type": "max", "padding": 15},
         "up": {"label": "hyoid", "task":"headneck_bones_vessels", "type": "max", "padding": 5},
         "down": {"label": "cricoid_cartilage", "task":"headneck_bones_vessels", "type": "min", "padding": 5},
-        "front": {"label": "thyroid_cartilage", "task":"headneck_bones_vessels", "type": "max", "padding": 3},
-        "back": {"label": "larynx_air", "task":"headneck_bones_vessels", "type": "min", "padding": 3},
+        "front": {"label": "thyroid_cartilage", "task":"headneck_bones_vessels", "type": "max", "padding": 7},
+        "back": {"label": "larynx_air", "task":"headneck_bones_vessels", "type": "min", "padding": 7},
         "outside": {"label": "body", "task":"body", "padding": 5},
 
     }
