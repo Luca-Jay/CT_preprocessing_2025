@@ -9,22 +9,23 @@ def run_segmentation(segmentation_ct_path: str, segmentation_path: str, roi_boun
     Runs the necessary totalsegmentator tasks based on the roi_bounds.
     """
     try:
-        if not(check_segmentation_files(segmentation_path)):
-            tasks = set([bound["task"] for bound in roi_bounds.values()])
+        missing_segmentations = check_segmentation_files(segmentation_path)
+        if len(missing_segmentations)!=0:
+            tasks = set([bound["task"] if bound["label"] in missing_segmentations else None for bound in roi_bounds.values()])
+            tasks.remove(None)
             if "total_v1" in tasks:
                 tasks.remove("total_v1")
             for task in tasks:
-                fast = task == "body"
-                fastest = task =="total"
-                roi_subset = [bound["label"] if bound["task"]=="total" else None for bound in roi_bounds.values()] if task == "total" else None
+                roi_subset = set([bound["label"] if bound["task"]=="total" else None for bound in roi_bounds.values()])
+                roi_subset.remove(None)
                 verbose_print(f"Running segmentation task: {task}...", verbose)
-                if fast:
-                    totalsegmentator(segmentation_ct_path, segmentation_path, task=task, roi_subset=roi_subset, fast=True, quiet=not(verbose))
-                elif fastest:
-                    totalsegmentator(segmentation_ct_path, segmentation_path, task=task, roi_subset=roi_subset, fastest=True, quiet=not(verbose))
+                if task == "body":
+                    totalsegmentator(segmentation_ct_path, segmentation_path, task=task, fast=True, quiet=not(verbose))
+                elif task =="total":
+                    totalsegmentator(segmentation_ct_path, segmentation_path, task=task, fastest=True, roi_subset=roi_subset, quiet=not(verbose))
                 else:
-                    totalsegmentator(segmentation_ct_path, segmentation_path, task=task, roi_subset=roi_subset, quiet=not(verbose))
-        return check_segmentation_files(segmentation_path)
+                    totalsegmentator(segmentation_ct_path, segmentation_path, task=task, quiet=not(verbose))
+        return True
     except Exception as e:
         verbose_print(f"Segmentation error: {e}", verbose)
         return False
