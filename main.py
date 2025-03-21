@@ -37,7 +37,6 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
         
         segmentation_path = os.path.join(case_path, "segmentation")
         if not os.path.exists(segmentation_path):
-            os.makedirs(segmentation_path)
             if not run_segmentation(segmentation_ct_path, segmentation_path, config["roi_bounds"], verbose=verbose):
                 error_log.append([case_name, "Segmentation failed or missing files"])
                 return

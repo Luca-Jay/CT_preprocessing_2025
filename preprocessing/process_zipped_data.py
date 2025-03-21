@@ -59,23 +59,16 @@ def process_zipped_data(data_zipped_folder: str, data_folder: str, scan_choice: 
                 # Move extracted files to the correct case destination
                 extracted_segment_folder = os.path.join(temp_extract_path, matched_segment_folder)
                 extracted_scan_folder = os.path.join(temp_extract_path, matched_scan_folder)
+                
                 if os.path.exists(extracted_segment_folder):
-                    correct_segment_destination = os.path.join(case_destination, segment_folder)
-                    shutil.move(extracted_segment_folder, correct_segment_destination)
-
                     # Convert extracted DICOM folders to NIfTI
                     nifti_output_segment = os.path.join(case_destination, "CT_scan_segmentation.nii.gz")
-                    convert_dicom_to_nifti(correct_segment_destination, nifti_output_segment, verbose=verbose)
-                    shutil.rmtree(correct_segment_destination, ignore_errors=True)  # Cleanup
+                    convert_dicom_to_nifti(extracted_segment_folder, nifti_output_segment, verbose=verbose)
 
-                if os.path.exists(extracted_scan_folder) and extracted_scan_folder != extracted_segment_folder:
-                    correct_scan_destination = os.path.join(case_destination, scan_folder)
-                    shutil.move(extracted_scan_folder, correct_scan_destination)
-
+                if os.path.exists(extracted_scan_folder) :
                     # Convert extracted DICOM folders to NIfTI
                     nifti_output_scan = os.path.join(case_destination, "CT_scan.nii.gz")
-                    convert_dicom_to_nifti(correct_scan_destination, nifti_output_scan, verbose=verbose)
-                    shutil.rmtree(correct_scan_destination, ignore_errors=True)  # Cleanup
+                    convert_dicom_to_nifti(extracted_scan_folder, nifti_output_scan, verbose=verbose)
 
                 shutil.rmtree(temp_extract_path, ignore_errors=True)  # Cleanup temp folder
 
