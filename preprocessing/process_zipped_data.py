@@ -37,15 +37,17 @@ def process_zipped_data(data_zipped_folder: str, data_folder: str, scan_choice: 
 
                 # Find target folders inside the ZIP
                 segment_folder = scan_choice.get(f"{case_name}-SEGMENT")
-                scan_folder = scan_choice.get(f"{case_name}-SCAN")
-                if not segment_folder or not scan_folder:
+                scan_folder_bone = scan_choice.get(f"{case_name}-SCAN-BONE")
+                scan_folder_st = scan_choice.get(f"{case_name}-SCAN-ST")
+                if not segment_folder or not scan_folder_bone or not scan_folder_st:
                     verbose_print(f"No target folders specified for {case_name} in config.", verbose)
                     continue
 
                 matched_segment_folder = find_target_folder(zip_ref, segment_folder)
-                matched_scan_folder = find_target_folder(zip_ref, scan_folder)
-                if not matched_segment_folder or not matched_scan_folder:
-                    verbose_print(f"No matching folders found in {zip_filename} for targets {segment_folder} and {scan_folder}", verbose)
+                matched_scan_folder_bone = find_target_folder(zip_ref, scan_folder_bone)
+                matched_scan_folder_st = find_target_folder(zip_ref, scan_folder_st)
+                if not matched_segment_folder or not matched_scan_folder_bone or not matched_scan_folder_st:
+                    verbose_print(f"No matching folders found in {zip_filename} for targets {segment_folder} and {scan_folder_bone} and {scan_folder_st}", verbose)
                     continue
 
                 # Extract only the relevant folders
@@ -53,22 +55,28 @@ def process_zipped_data(data_zipped_folder: str, data_folder: str, scan_choice: 
                 os.makedirs(temp_extract_path, exist_ok=True)
 
                 for file in zip_ref.namelist():
-                    if file.startswith(matched_segment_folder) or file.startswith(matched_scan_folder):
+                    if file.startswith(matched_segment_folder) or file.startswith(matched_scan_folder_bone) or file.startswith(matched_scan_folder_st):
                         zip_ref.extract(file, temp_extract_path)
 
                 # Move extracted files to the correct case destination
                 extracted_segment_folder = os.path.join(temp_extract_path, matched_segment_folder)
-                extracted_scan_folder = os.path.join(temp_extract_path, matched_scan_folder)
+                extracted_scan_folder_bone = os.path.join(temp_extract_path, matched_scan_folder_bone)
+                extracted_scan_folder_st = os.path.join(temp_extract_path, matched_scan_folder_st)
                 
                 if os.path.exists(extracted_segment_folder):
                     # Convert extracted DICOM folders to NIfTI
                     nifti_output_segment = os.path.join(case_destination, "CT_scan_segmentation.nii.gz")
                     convert_dicom_to_nifti(extracted_segment_folder, nifti_output_segment, verbose=verbose)
 
-                if os.path.exists(extracted_scan_folder) :
+                if os.path.exists(extracted_scan_folder_bone) :
                     # Convert extracted DICOM folders to NIfTI
-                    nifti_output_scan = os.path.join(case_destination, "CT_scan.nii.gz")
-                    convert_dicom_to_nifti(extracted_scan_folder, nifti_output_scan, verbose=verbose)
+                    nifti_output_scan = os.path.join(case_destination, "CT_scan_bone.nii.gz")
+                    convert_dicom_to_nifti(extracted_scan_folder_bone, nifti_output_scan, verbose=verbose)
+                
+                if os.path.exists(extracted_scan_folder_st) :
+                    # Convert extracted DICOM folders to NIfTI
+                    nifti_output_scan = os.path.join(case_destination, "CT_scan_st.nii.gz")
+                    convert_dicom_to_nifti(extracted_scan_folder_st, nifti_output_scan, verbose=verbose)
 
                 shutil.rmtree(temp_extract_path, ignore_errors=True)  # Cleanup temp folder
 
