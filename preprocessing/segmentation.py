@@ -19,7 +19,7 @@ def run_segmentation(segmentation_ct_path: str, segmentation_path: str, roi_boun
                 if task == "body":
                     totalsegmentator(segmentation_ct_path, segmentation_path, task=task, fast=True, quiet=not(verbose))
                 elif task =="total":
-                    totalsegmentator(segmentation_ct_path, segmentation_path, task=task, fast=True, roi_subset=roi_subset, quiet=not(verbose))
+                    totalsegmentator(segmentation_ct_path, segmentation_path, task=task, fastest=True, roi_subset=roi_subset, quiet=not(verbose))
                 else:
                     totalsegmentator(segmentation_ct_path, segmentation_path, task=task, quiet=not(verbose))
         return True
