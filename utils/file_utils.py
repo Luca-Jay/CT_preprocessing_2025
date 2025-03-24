@@ -12,13 +12,14 @@ def load_nifti_files(ct_scan_path: str, segmentation_folder: str, roi_bounds: di
     """
     try:
         verbose_print("Loading NIfTI files...", verbose)
-        nifti_files = {"ct_scan": tio.ScalarImage(ct_scan_path)}
+        ct_scan = tio.ScalarImage(ct_scan_path)
+        masks = {}
         for bound in roi_bounds.values():
             label = bound["label"]
-            if label not in nifti_files:
-                nifti_files[label] = tio.ScalarImage(os.path.join(segmentation_folder, f"{label}.nii.gz"))
+            if label not in masks:
+                masks[label] = tio.LabelMap(os.path.join(segmentation_folder, f"{label}.nii.gz"))
         verbose_print("NIfTI files loaded successfully.", verbose)
-        return nifti_files
+        return ct_scan, masks
     except Exception as e:
         print(f"Failed to load NIfTI files: {e}")
         raise
@@ -37,13 +38,21 @@ def get_image_arrays(ct_scan: tio.ScalarImage, nifti_files: Dict[str, tio.Scalar
         print(f"Failed to extract image arrays: {e}")
         raise
 
-def save_nifti(scan_array: np.ndarray, affine: np.ndarray, output_file: str, verbose: bool = False) -> None:
+def save_nifti(ct_scan: tio.ScalarImage, output_file: str, verbose: bool = False) -> None:
     """
     Saves the preprocessed scan array as a NIfTI file.
     """
     try:
         verbose_print(f"Saving preprocessed scan to {output_file}...", verbose)
-        preprocessed_scan = tio.ScalarImage(tensor=scan_array, affine=affine)
+        # Center the image and resample to 1mm voxels
+        _, W, H, D = ct_scan.shape
+        center = np.array([W, H, D], dtype=np.float32) / 2.0
+
+        # Build a new affine: 1mm spacing, origin at center
+        new_affine = np.eye(4, dtype=np.float32)
+        new_affine[:3, 3] = -center
+
+        preprocessed_scan = tio.ScalarImage(tensor=ct_scan.data, affine=new_affine)
         preprocessed_scan.save(output_file)
         verbose_print(f"Preprocessed scan saved as {output_file}.", verbose)
     except Exception as e:
@@ -59,7 +68,7 @@ def convert_dicom_to_nifti(dicom_directory: str, output_file: str, verbose: bool
     except Exception as e:
         print(f"Error converting {dicom_directory} to NIfTI: {e}")
 
-def resample_mask_torch(src_image, target_shape):
+def resample_mask(src_image, target_shape):
     """
     Resample a 3D tensor from source space to target space using torchIO.
     src_tensor: shape (1, 1, D, H, W)

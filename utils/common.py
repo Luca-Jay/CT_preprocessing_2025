@@ -2,6 +2,7 @@ import nibabel as nib
 import numpy as np
 import torch
 from typing import List, Tuple
+from nibabel.affines import apply_affine
 
 def verbose_print(message: str, verbose: bool) -> None:
     """
@@ -19,15 +20,8 @@ def find_bounding_box(mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     max_bounds = indices.max(axis=0).values
     return min_bounds, max_bounds
 
-def transform_coordinates(coords: List[List[int]], source_affine: torch.Tensor, target_affine: torch.Tensor, verbose: bool = False) -> List[int]:
-    """
-    Transforms coordinates from the source affine to the target affine.
-    """
+def transform_coordinates(coords, source_affine, target_affine, verbose=False):
     verbose_print("Transforming coordinates...", verbose)
-    transformed_coords = []
-    for coord in coords:
-        coord_world = torch.matmul(source_affine, torch.tensor(coord + [1.0])).tolist()
-        coord_transformed = torch.matmul(torch.inverse(target_affine), torch.tensor(coord_world)).tolist()
-        transformed_coords.append(round(coord_transformed[coord.index(max(coord))]))
-    verbose_print("Coordinates transformed.", verbose)
-    return transformed_coords
+    world_coords = apply_affine(source_affine, coords)
+    target_coords = apply_affine(np.linalg.inv(target_affine), world_coords)
+    return np.round(target_coords).astype(int).tolist()

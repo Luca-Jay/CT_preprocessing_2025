@@ -3,7 +3,6 @@ from totalsegmentator.map_to_binary import class_map
 from utils.segmentation_checker import check_segmentation_files
 from utils.common import verbose_print
 
-
 def run_segmentation(segmentation_ct_path: str, segmentation_path: str, roi_bounds: dict, verbose: bool = False) -> bool:
     """
     Runs the necessary totalsegmentator tasks based on the roi_bounds.
