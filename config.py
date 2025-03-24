@@ -10,13 +10,13 @@ config = {
     "max_hu": 1000,
     
     # Output folder for saving preprocessed scans
-    "output_folder": "/workspace/project-data/PREPROCESSED_CT_SCANS",
+    "output_folder": "./PREPROCESSED_CT_SCANS",
     
     # Folder containing zipped data
-    "data_zipped_folder": "/workspace/project-data/data-zipped",
+    "data_zipped_folder": "data_zipped",
     
     # Folder for unzipped data
-    "data_folder": "/workspace/project-data/data_unzipped",
+    "data_folder": "data_unzipped",
     
     # Bounds for ROI cropping
     "roi_bounds": {
@@ -24,7 +24,7 @@ config = {
         "right": {"label": "vertebrae_C4", "task": "total", "type": "max", "padding": 15},
         "up": {"label": "vertebrae_C3", "task":"total", "type": "max", "padding": 2},
         "down": {"label": "vertebrae_C7", "task":"total", "type": "min", "padding": 2},
-        "front": {"label": "body", "task":"body", "type": "max", "padding": 5},
+        "front": {"label": "skull", "task":"total", "type": "max", "padding": 0},
         "back": {"label": "vertebrae_C7", "task":"total", "type": "min", "padding": 5},
         "outside": {"label": "body", "task":"body", "padding": 5},
 
@@ -32,5 +32,5 @@ config = {
 }
 
 # Load scan choices from a separate JSON file
-with open('/workspace/project-data/CT_preprocessing_2025/scan_choices.json', 'r') as f:
+with open('scan_choices.json', 'r') as f:
     config["scan_choice"] = json.load(f)

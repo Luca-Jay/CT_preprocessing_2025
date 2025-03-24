@@ -15,7 +15,7 @@ def run_segmentation(segmentation_ct_path: str, segmentation_path: str, roi_boun
             if "total_v1" in tasks:
                 tasks.remove("total_v1")
             for task in tasks:
-                roi_subset = {bound["label"] for bound in roi_bounds.values() if bound["task"] == "total"}
+                roi_subset = [bound["label"] for bound in roi_bounds.values() if bound["task"] == "total"]
                 verbose_print(f"Running segmentation task: {task}...", verbose)
                 if task == "body":
                     totalsegmentator(segmentation_ct_path, segmentation_path, task=task, fast=True, quiet=not(verbose))

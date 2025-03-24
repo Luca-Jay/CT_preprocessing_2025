@@ -1,53 +1,36 @@
 import os
-import nibabel as nib
 import dicom2nifti
-import nibabel.processing
 from utils.common import verbose_print
 from typing import Tuple, Dict
 import numpy as np
+import torch
+import torchio as tio  # Add torchio import
 
-def load_nifti_files(ct_scan_path: str, segmentation_folder: str, verbose: bool = False) -> Tuple[nib.Nifti1Image, nib.Nifti1Image, nib.Nifti1Image, nib.Nifti1Image, nib.Nifti1Image]:
-    """
-    Loads NIfTI files for the CT scan and segmentation masks.
-    """
-    try:
-        verbose_print("Loading NIfTI files...", verbose)
-        ct_scan = nib.load(ct_scan_path, mmap=True)
-        vertebrae_C3_mask = nib.load(os.path.join(segmentation_folder, "vertebrae_C3.nii.gz"), mmap=True)
-        vertebrae_C7_mask = nib.load(os.path.join(segmentation_folder, "vertebrae_C7.nii.gz"), mmap=True)
-        body_mask = nib.load(os.path.join(segmentation_folder, "body.nii.gz"), mmap=True)
-        skull_mask = nib.load(os.path.join(segmentation_folder, "skull.nii.gz"), mmap=True)
-        verbose_print("NIfTI files loaded successfully.", verbose)
-        return ct_scan, vertebrae_C3_mask, vertebrae_C7_mask, body_mask, skull_mask
-    except Exception as e:
-        print(f"Failed to load NIfTI files: {e}")
-        raise
-
-def load_nifti_files_dynamic(ct_scan_path: str, segmentation_folder: str, roi_bounds: dict, verbose: bool = False) -> Dict[str, nib.Nifti1Image]:
+def load_nifti_files(ct_scan_path: str, segmentation_folder: str, roi_bounds: dict, verbose: bool = False) -> Dict[str, tio.ScalarImage]:
     """
     Dynamically loads NIfTI files for the CT scan and segmentation masks based on the provided roi_bounds.
     """
     try:
         verbose_print("Loading NIfTI files...", verbose)
-        nifti_files = {"ct_scan": nib.load(ct_scan_path, mmap=True)}
+        nifti_files = {"ct_scan": tio.ScalarImage(ct_scan_path)}
         for bound in roi_bounds.values():
             label = bound["label"]
             if label not in nifti_files:
-                nifti_files[label] = nib.load(os.path.join(segmentation_folder, f"{label}.nii.gz"), mmap=True)
+                nifti_files[label] = tio.ScalarImage(os.path.join(segmentation_folder, f"{label}.nii.gz"))
         verbose_print("NIfTI files loaded successfully.", verbose)
         return nifti_files
     except Exception as e:
         print(f"Failed to load NIfTI files: {e}")
         raise
 
-def get_image_arrays(ct_scan: nib.Nifti1Image, nifti_files: Dict[str, nib.Nifti1Image], verbose: bool = False) -> Dict[str, np.ndarray]:
+def get_image_arrays(ct_scan: tio.ScalarImage, nifti_files: Dict[str, tio.ScalarImage], verbose: bool = False) -> Dict[str, np.ndarray]:
     """
     Extracts image arrays from the loaded NIfTI files.
     """
     try:
         verbose_print("Extracting image arrays from NIfTI files...", verbose)
-        ct_data = ct_scan.get_fdata()
-        mask_data = {label: nifti_file.get_fdata() for label, nifti_file in nifti_files.items() if label != "ct_scan"}
+        ct_data = ct_scan.data.numpy()
+        mask_data = {label: nifti_file.data.numpy() for label, nifti_file in nifti_files.items() if label != "ct_scan"}
         verbose_print("Image arrays extracted.", verbose)
         return {"ct_data": ct_data, **mask_data}
     except Exception as e:
@@ -60,8 +43,8 @@ def save_nifti(scan_array: np.ndarray, affine: np.ndarray, output_file: str, ver
     """
     try:
         verbose_print(f"Saving preprocessed scan to {output_file}...", verbose)
-        preprocessed_scan = nib.Nifti1Image(scan_array, affine)
-        nib.save(preprocessed_scan, output_file)
+        preprocessed_scan = tio.ScalarImage(tensor=scan_array, affine=affine)
+        preprocessed_scan.save(output_file)
         verbose_print(f"Preprocessed scan saved as {output_file}.", verbose)
     except Exception as e:
         print(f"Failed to save NIfTI file: {e}")
@@ -76,3 +59,21 @@ def convert_dicom_to_nifti(dicom_directory: str, output_file: str, verbose: bool
     except Exception as e:
         print(f"Error converting {dicom_directory} to NIfTI: {e}")
 
+def resample_mask_torch(src_image, target_shape):
+    """
+    Resample a 3D tensor from source space to target space using torchIO.
+    src_tensor: shape (1, 1, D, H, W)
+    """
+    # Define the target shape
+    target_shape = tuple(target_shape)
+
+    # Create a torchIO CropOrPad transform
+    resample_transform = tio.CropOrPad(target_shape)
+
+    # Apply the resample transform
+    resampled_image = resample_transform(src_image)
+
+    # Extract the resampled tensor
+    resampled_tensor = resampled_image.data
+
+    return resampled_tensor
