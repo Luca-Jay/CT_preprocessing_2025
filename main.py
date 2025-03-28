@@ -20,19 +20,24 @@ from preprocessing.removing_excess import rotate_ct_scan_to_align_vertebrae
 # Initialize a DataFrame to store errors
 error_log = []
 
-def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: str, config: dict, verbose: bool = False) -> None:
+def preprocess_ct_scan(case_path: str, config: dict, verbose: bool = False) -> None:
     """
     Preprocesses a CT scan by loading NIfTI files, applying various preprocessing steps,
     and saving the preprocessed scan to an output file.
     """
     global error_log
     try:
+        ct_scan_path = os.path.join(case_path, "CT_scan_bone.nii.gz")
+        segmentation_ct_path = os.path.join(case_path, "CT_scan_segmentation.nii.gz")
         case_name = os.path.basename(case_path)
-        output_file = os.path.join(config["output_folder"], f"{case_name}.nii.gz")
+        output_folder = os.path.join(config["output_folder"],f"CLIPPED({config['min_hu']}-{config['max_hu']})", "TIGHT")
+        os.makedirs(output_folder, exist_ok=True)
+        output_file = os.path.join(output_folder, f"{case_name}.nii.gz")
         
         if os.path.exists(output_file):
             verbose_print(f"Preprocessed scan already exists for {case_path}.", verbose)
             return
+        print(f"Preprocessing started for: {case_name}")
         
         segmentation_path = os.path.join(case_path, "segmentation")
         if not run_segmentation(segmentation_ct_path, segmentation_path, config["roi_bounds"], verbose=verbose):
@@ -41,8 +46,9 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
 
         # Load NIfTI files dynamically based on the labels in the config
         ct_scan, mask_tensors = file_utils.load_nifti_files(ct_scan_path, segmentation_path, config["roi_bounds"], verbose=verbose)
-        body_mask = mask_tensors["body"]
 
+        # Set values outside the body to -1000 HU
+        ct_scan.set_data(removing_excess.remove_excess(ct_scan, mask_tensors, config, verbose=verbose))
 
         # Rotate CT scan to align vertebrae C3 and C7 in X and Y
         ct_scan = rotate_ct_scan_to_align_vertebrae(
@@ -51,10 +57,6 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
             mask_tensors["vertebrae_C7"], 
             verbose=verbose
         )
-
-        # Resample using torchio if the affines are different
-        if (body_mask.affine != ct_scan.affine).any():
-            body_mask = tio.Resample(ct_scan)(body_mask)
 
         # Compute bounding boxes for masks and transform coordinates
         x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed = ROI_cropping.get_transformed_bounding_boxes(
@@ -66,7 +68,6 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
         
         # Crop CT scan using ROI bounds
         ct_scan.set_data(ROI_cropping.crop_ct_scan(ct_scan, x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed, verbose=verbose))
-        ct_scan.set_data(ROI_cropping.crop_ct_scan(body_mask, x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed, verbose=verbose))
 
         # Remove excess outside the body mask
         ct_scan.set_data(removing_excess.remove_excess(ct_scan, mask_tensors["body"], config["roi_bounds"]["outside"]["padding"], verbose=verbose))
@@ -75,12 +76,12 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
         ct_scan.set_data(downsampling.downsample_ct(ct_scan.data, config["target_shape"], verbose=verbose))
 
         # Normalize the Hounsfield units
-        ct_scan.set_data(normalization.normalize_hu(ct_scan.data, config["min_hu"], config["max_hu"], verbose=verbose))
+        #ct_scan.set_data(normalization.normalize_hu(ct_scan.data, config["min_hu"], config["max_hu"], verbose=verbose))
 
         # Convert to NIfTI and save
         file_utils.save_nifti(ct_scan.data, output_file, verbose=verbose)
 
-        verbose_print(f"Preprocessing complete for: {case_name}", verbose)
+        print(f"Preprocessing complete for: {case_name}")
     
     except Exception as e:
         error_log.append([case_name, str(e)])
@@ -95,22 +96,25 @@ def main() -> None:
     print("Starting preprocessing pipeline...")
     start_time = time.time()
     try:
-        # process_zipped_data.process_zipped_data(
-        #     config["data_zipped_folder"], 
-        #     config["data_folder"], 
-        #     config["scan_choice"],
-        #     verbose=True
-        # )
+        process_zipped_data.process_zipped_data(
+            config["data_zipped_folder"], 
+            config["data_folder"], 
+            config["scan_choice"],
+            verbose=False
+        )
 
         # Clear memory after unzipping
         gc.collect()
-
+        number_of_scans = 1
+        scan = 0
         for case_folder in os.listdir(config["data_folder"]):
             case_path = os.path.join(config["data_folder"], case_folder)
             if os.path.isdir(case_path):
-                ct_scan_path = os.path.join(case_path, "CT_scan.nii.gz")
-                segmentation_ct_path = os.path.join(case_path, "CT_scan_segmentation.nii.gz")
-                preprocess_ct_scan(case_path, ct_scan_path, segmentation_ct_path, config, verbose=True)
+                preprocess_ct_scan(case_path, config, verbose=True)
+                if scan > number_of_scans:
+                    return
+                else:
+                    scan+=1
 
         print("Preprocessing pipeline complete.")
     

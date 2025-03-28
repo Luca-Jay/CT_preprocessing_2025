@@ -12,8 +12,10 @@ def normalize_hu(scan_tensor: torch.Tensor, min_hu: int, max_hu: int, verbose: b
     # Perform normalization using torchio
     clamping =tio.Clamp(out_min=min_hu, out_max=max_hu)
     scan_tensor =  clamping(scan_tensor)
-    transform = tio.transforms.RescaleIntensity(out_min_max=(0, 1), in_min_max=(min_hu, max_hu))
-    scan_tensor = transform(scan_tensor)
+    clamping =tio.Clamp(out_min=min_hu, out_max=max_hu)
+    scan_tensor =  clamping(scan_tensor)
+    normalize = tio.transforms.RescaleIntensity(out_min_max=(0, 1), in_min_max=(min_hu, max_hu))
+    scan_tensor = normalize(scan_tensor)
 
     verbose_print("Normalization complete.", verbose)
     return scan_tensor

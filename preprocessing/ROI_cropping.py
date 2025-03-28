@@ -19,7 +19,7 @@ def compute_bounding_boxes(mask_data: dict, roi_bounds: dict, verbose: bool = Fa
 
     # Extract the required bounds from the computed bounding boxes
     for bound, settings in roi_bounds.items():
-        if bound != "outside":
+        if bound != "outside" and bound != "skull":
             label = settings["label"]
             bound_type = settings["type"]
             bounding_boxes[bound] = bounding_boxes[label][bound_type][{"left": 1, "right": 1, "up": 3, "down": 3, "front": 2, "back": 2}[bound]]

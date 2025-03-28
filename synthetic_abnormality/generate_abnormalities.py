@@ -29,7 +29,7 @@ def generate_abnormalities(input_folder, output_folder, num_scans, cube_sizes):
         for cube_size in cube_sizes:
             # Remove .nii extension before adding anomaly suffix
             scan_name = str.split(os.path.splitext(os.path.splitext(scan)[0])[0], '_')[0]
-            output_filename = f"{scan_name}_ANOMALY_CUBE{cube_size}.nii.gz"
+            output_filename = f"{scan_name}_CUBE{cube_size}.nii.gz"
             output_path = os.path.join(output_folder, output_filename)
             
             # Inject anomaly and save the modified scan
@@ -38,9 +38,9 @@ def generate_abnormalities(input_folder, output_folder, num_scans, cube_sizes):
 
 
 if __name__ == "__main__":
-    input_folder = 'PREPROCESSED_CT_SCANS'
-    output_folder = 'PREPROCESSED_CT_SCANS/synthetic_abnormalities'
-    num_scans = 2
+    input_folder = '/workspace/project-data/PREPROCESSED_CT_SCANS'
+    output_folder = '/workspace/project-data/CT_model/DATA/TEST/CUBE'
+    num_scans = 5
     cube_sizes = [5, 10, 15]
 
     generate_abnormalities(input_folder, output_folder, num_scans, cube_sizes)
