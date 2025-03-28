@@ -12,8 +12,10 @@ from preprocessing import (
 from utils import file_utils
 from utils.common import verbose_print
 from config import config
+import torchio as tio
 
 from preprocessing.segmentation import run_segmentation  # Import the segmentation function
+from preprocessing.removing_excess import rotate_ct_scan_to_align_vertebrae
 
 # Initialize a DataFrame to store errors
 error_log = []
@@ -39,9 +41,20 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
 
         # Load NIfTI files dynamically based on the labels in the config
         ct_scan, mask_tensors = file_utils.load_nifti_files(ct_scan_path, segmentation_path, config["roi_bounds"], verbose=verbose)
+        body_mask = mask_tensors["body"]
 
-        # Set values outside the body to -1000 HU
-        ct_scan.set_data(removing_excess.remove_excess(ct_scan, mask_tensors.get("body"), config["roi_bounds"]["outside"]["padding"], verbose=verbose))
+
+        # Rotate CT scan to align vertebrae C3 and C7 in X and Y
+        ct_scan = rotate_ct_scan_to_align_vertebrae(
+            ct_scan, 
+            mask_tensors["vertebrae_C3"], 
+            mask_tensors["vertebrae_C7"], 
+            verbose=verbose
+        )
+
+        # Resample using torchio if the affines are different
+        if (body_mask.affine != ct_scan.affine).any():
+            body_mask = tio.Resample(ct_scan)(body_mask)
 
         # Compute bounding boxes for masks and transform coordinates
         x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed = ROI_cropping.get_transformed_bounding_boxes(
@@ -53,6 +66,10 @@ def preprocess_ct_scan(case_path: str, ct_scan_path: str, segmentation_ct_path: 
         
         # Crop CT scan using ROI bounds
         ct_scan.set_data(ROI_cropping.crop_ct_scan(ct_scan, x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed, verbose=verbose))
+        ct_scan.set_data(ROI_cropping.crop_ct_scan(body_mask, x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed, verbose=verbose))
+
+        # Remove excess outside the body mask
+        ct_scan.set_data(removing_excess.remove_excess(ct_scan, mask_tensors["body"], config["roi_bounds"]["outside"]["padding"], verbose=verbose))
 
         # Downsample the CT scan        
         ct_scan.set_data(downsampling.downsample_ct(ct_scan.data, config["target_shape"], verbose=verbose))
@@ -78,12 +95,12 @@ def main() -> None:
     print("Starting preprocessing pipeline...")
     start_time = time.time()
     try:
-        process_zipped_data.process_zipped_data(
-            config["data_zipped_folder"], 
-            config["data_folder"], 
-            config["scan_choice"],
-            verbose=True
-        )
+        # process_zipped_data.process_zipped_data(
+        #     config["data_zipped_folder"], 
+        #     config["data_folder"], 
+        #     config["scan_choice"],
+        #     verbose=True
+        # )
 
         # Clear memory after unzipping
         gc.collect()

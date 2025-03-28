@@ -1,1 +1,2 @@
 Case,Error
+case-104494,value cannot be converted to type uint8_t without overflow

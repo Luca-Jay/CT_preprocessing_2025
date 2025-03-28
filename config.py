@@ -6,8 +6,11 @@ config = {
     "target_shape": (128, 128, 128),
     
     # Hounsfield Units (HU) range for normalization
-    "min_hu": -1000,
-    "max_hu": 1000,
+    "min_hu": 100,
+    "max_hu": 900,
+    
+    # Target Z-coordinate for vertical alignment
+    "target_z": 64,
     
     # Output folder for saving preprocessed scans
     "output_folder": "./PREPROCESSED_CT_SCANS",
@@ -23,11 +26,10 @@ config = {
         "left": {"label": "vertebrae_C4", "task": "total", "type": "min", "padding": 15},
         "right": {"label": "vertebrae_C4", "task": "total", "type": "max", "padding": 15},
         "up": {"label": "vertebrae_C3", "task":"total", "type": "max", "padding": 2},
-        "down": {"label": "vertebrae_C7", "task":"total", "type": "min", "padding": 2},
+        "down": {"label": "cricoid_cartilage", "task":"headneck_bones_vessels", "type": "min", "padding": 2},
         "front": {"label": "skull", "task":"total", "type": "max", "padding": 0},
         "back": {"label": "vertebrae_C7", "task":"total", "type": "min", "padding": 5},
         "outside": {"label": "body", "task":"body", "padding": 5},
-
     }
 }
 
