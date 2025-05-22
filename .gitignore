@@ -7,3 +7,7 @@ scan_choices.json
 scan_options.csv
 PREPROCESSED_CT_SCANS/
 error_log.csv
+scan_choices_RQ2.json
+scan_options_RQ2.csv
+scan_*
+error_log.csv

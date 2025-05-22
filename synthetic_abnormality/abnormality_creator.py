@@ -18,8 +18,8 @@ def inject_cube_anomaly(input_nifti_path, output_nifti_path, cube_size=10, cube_
     y = np.random.randint(dims[1]//4, 3*dims[1]//4 - cube_size)
     z = np.random.randint(dims[2]//4, 3*dims[2]//4 - cube_size)
 
-    # Inject cube with high HU (normalized so max = 1)
-    anomaly_hu = 1
+    # Inject cube with high HU (normalized so max = 1000)
+    anomaly_hu = 1000
     img_data[x:x+cube_size, y:y+cube_size, z:z+cube_size] = anomaly_hu
 
     # Save the modified image as a new NIfTI file

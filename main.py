@@ -30,9 +30,9 @@ def preprocess_ct_scan(case_path: str, config: dict, verbose: bool = False) -> N
         ct_scan_path = os.path.join(case_path, "CT_scan_bone.nii.gz")
         segmentation_ct_path = os.path.join(case_path, "CT_scan_segmentation.nii.gz")
         case_name = os.path.basename(case_path)
-        output_folder = os.path.join(config["output_folder"],f"CLIPPED({config['min_hu']}-{config['max_hu']})", "TIGHT")
-        os.makedirs(output_folder, exist_ok=True)
-        output_file = os.path.join(output_folder, f"{case_name}.nii.gz")
+        # output_folder = os.path.join(config["output_folder"],f"CLIPPED({config['min_hu']}-{config['max_hu']})", "TIGHT")
+        os.makedirs(config["output_folder"], exist_ok=True)
+        output_file = os.path.join(config["output_folder"], f"{case_name}.nii.gz")
         
         if os.path.exists(output_file):
             verbose_print(f"Preprocessed scan already exists for {case_path}.", verbose)
@@ -50,14 +50,6 @@ def preprocess_ct_scan(case_path: str, config: dict, verbose: bool = False) -> N
         # Set values outside the body to -1000 HU
         ct_scan.set_data(removing_excess.remove_excess(ct_scan, mask_tensors, config, verbose=verbose))
 
-        # Rotate CT scan to align vertebrae C3 and C7 in X and Y
-        ct_scan = rotate_ct_scan_to_align_vertebrae(
-            ct_scan, 
-            mask_tensors["vertebrae_C3"], 
-            mask_tensors["vertebrae_C7"], 
-            verbose=verbose
-        )
-
         # Compute bounding boxes for masks and transform coordinates
         x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed = ROI_cropping.get_transformed_bounding_boxes(
             mask_tensors, 
@@ -69,9 +61,6 @@ def preprocess_ct_scan(case_path: str, config: dict, verbose: bool = False) -> N
         # Crop CT scan using ROI bounds
         ct_scan.set_data(ROI_cropping.crop_ct_scan(ct_scan, x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed, verbose=verbose))
 
-        # Remove excess outside the body mask
-        ct_scan.set_data(removing_excess.remove_excess(ct_scan, mask_tensors["body"], config["roi_bounds"]["outside"]["padding"], verbose=verbose))
-
         # Downsample the CT scan        
         ct_scan.set_data(downsampling.downsample_ct(ct_scan.data, config["target_shape"], verbose=verbose))
 
@@ -79,7 +68,7 @@ def preprocess_ct_scan(case_path: str, config: dict, verbose: bool = False) -> N
         #ct_scan.set_data(normalization.normalize_hu(ct_scan.data, config["min_hu"], config["max_hu"], verbose=verbose))
 
         # Convert to NIfTI and save
-        file_utils.save_nifti(ct_scan.data, output_file, verbose=verbose)
+        file_utils.save_nifti(ct_scan.data, output_file, verbose=True)
 
         print(f"Preprocessing complete for: {case_name}")
     
@@ -96,21 +85,21 @@ def main() -> None:
     print("Starting preprocessing pipeline...")
     start_time = time.time()
     try:
-        process_zipped_data.process_zipped_data(
-            config["data_zipped_folder"], 
-            config["data_folder"], 
-            config["scan_choice"],
-            verbose=False
-        )
+        # process_zipped_data.process_zipped_data(
+        #     config["data_zipped_folder"], 
+        #     config["data_folder"], 
+        #     config["scan_choice"],
+        #     verbose=True
+        # )
 
         # Clear memory after unzipping
         gc.collect()
-        number_of_scans = 1
+        number_of_scans = 1000
         scan = 0
         for case_folder in os.listdir(config["data_folder"]):
             case_path = os.path.join(config["data_folder"], case_folder)
             if os.path.isdir(case_path):
-                preprocess_ct_scan(case_path, config, verbose=True)
+                preprocess_ct_scan(case_path, config, verbose=False)
                 if scan > number_of_scans:
                     return
                 else:

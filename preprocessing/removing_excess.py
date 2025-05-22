@@ -3,6 +3,8 @@ from scipy.ndimage import binary_dilation, center_of_mass
 from utils.common import verbose_print
 import numpy as np
 import torchio as tio  # Add torchio import
+from scipy.spatial.transform import Rotation as R
+
 
 
 def remove_excess(ct_scan: tio.ScalarImage, masks: dict[str, tio.ScalarImage], config, verbose: bool = False) -> torch.Tensor:
@@ -30,34 +32,64 @@ def remove_excess(ct_scan: tio.ScalarImage, masks: dict[str, tio.ScalarImage], c
         skull_mask = tio.Resample(ct_scan)(skull_mask)
     
 
-    ct_scan.data[skull_mask.data.bool()] = -1000
+    ct_scan.data[skull_mask.data.bool()] = 0
+
+    
 
     verbose_print("Values outside the body have been set.", verbose)
     return ct_scan.data
 
-
 def rotate_ct_scan_to_align_vertebrae(ct_scan: tio.ScalarImage, vertebrae_c3: tio.LabelMap, vertebrae_c7: tio.LabelMap, verbose: bool = False) -> tio.ScalarImage:
-    """
-    Rotates the CT scan to align the middle of vertebrae C3 and C7 in the X and Y axes.
-    """
+
     verbose_print("Rotating CT scan to align vertebrae C3 and C7...", verbose)
 
-    # Compute the center of mass for both vertebrae
-    com_c3 = center_of_mass(vertebrae_c3.data.numpy())
-    com_c7 = center_of_mass(vertebrae_c7.data.numpy())
+    # Compute CoM of vertebrae in voxel space (remove channel dim)
+    com_c3_voxel = np.array(center_of_mass(vertebrae_c3.data.numpy()[0]))
+    com_c7_voxel = np.array(center_of_mass(vertebrae_c7.data.numpy()[0]))
+    neck_center_voxel = (com_c3_voxel + com_c7_voxel) / 2
 
-    # Compute the midpoint of the vertebrae in X and Y
-    midpoint_x = (com_c3[0] + com_c7[0]) / 2
-    midpoint_y = (com_c3[1] + com_c7[1]) / 2
+    # Convert voxel center to world (physical) coordinates
+    neck_center_world = ct_scan.affine[:3, :3] @ neck_center_voxel + ct_scan.affine[:3, 3]
 
-    # Compute the translation required to align the midpoint to the center of the CT scan
-    _, W, H, _ = ct_scan.shape
-    center_x, center_y = W / 2, H / 2
-    x_shift = int(center_x - midpoint_x)
-    y_shift = int(center_y - midpoint_y)
+    # Compute rotation matrix from C3->C7 direction to z-axis
+    direction = com_c7_voxel - com_c3_voxel
+    direction /= np.linalg.norm(direction)
+    target = np.array([0, 0, 1])  # z-axis
 
-    # Apply the translation to the CT scan
-    ct_scan.data = torch.roll(ct_scan.data, shifts=(x_shift, y_shift), dims=(1, 2))
+    if np.allclose(direction, target):
+        rot = np.eye(3)
+    else:
+        rotation_vector = np.cross(direction, target)
+        angle = np.arccos(np.clip(np.dot(direction, target), -1.0, 1.0))
+        if np.linalg.norm(rotation_vector) < 1e-6:
+            rot = np.eye(3)
+        else:
+            rotation_vector = rotation_vector / np.linalg.norm(rotation_vector)
+            rot = R.from_rotvec(rotation_vector * angle).as_matrix()
 
-    verbose_print(f"CT scan rotated. X shift: {x_shift}, Y shift: {y_shift}.", verbose)
-    return ct_scan
+    # Step 1: Translate to origin
+    T1 = np.eye(4)
+    T1[:3, 3] = -neck_center_world
+
+    # Step 2: Apply rotation
+    R_affine = np.eye(4)
+    R_affine[:3, :3] = rot
+
+    # Step 3: Translate back
+    T2 = np.eye(4)
+    T2[:3, 3] = neck_center_world
+
+    # Combine: T2 * R * T1
+    final_affine = T2 @ R_affine @ T1
+    new_affine = final_affine @ ct_scan.affine
+
+    # Create new reference image with rotated affine
+    reference = tio.ScalarImage(tensor=ct_scan.data.clone(), affine=new_affine)
+
+    # Apply transform
+    rotated = tio.Resample(reference)(ct_scan)
+
+    verbose_print("Rotation applied around neck center.", verbose)
+    return rotated
+
+

@@ -26,6 +26,8 @@ def process_zipped_data(data_zipped_folder: str, data_folder: str, scan_choice: 
             case_name = os.path.splitext(zip_filename)[0]
             case_destination = os.path.join(data_folder, case_name)
 
+            verbose_print(f"Processing {case_name}...", verbose)
+
             if os.path.exists(case_destination):
                 verbose_print(f"Skipping {case_name}: already exists in {data_folder}", verbose)
                 continue

@@ -33,8 +33,8 @@ def create_scan_options_dataframe(data_zipped_folder: str) -> pd.DataFrame:
     return df
 
 if __name__ == "__main__":
-    data_zipped_folder = "/workspace/project-data/data-zipped"  # Update this path as needed
+    data_zipped_folder = "/workspace/project-data/data-zipped-RQ3"  # Update this path as needed
     df = create_scan_options_dataframe(data_zipped_folder)
-    output_csv ="scan_options.csv"
+    output_csv ="scan_options_RQ3.csv"
     df.to_csv(output_csv, index=False)
     print(f"Scan options DataFrame saved to {output_csv}")
