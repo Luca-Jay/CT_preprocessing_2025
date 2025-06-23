@@ -15,7 +15,6 @@ from config import config
 import torchio as tio
 
 from preprocessing.segmentation import run_segmentation  # Import the segmentation function
-from preprocessing.removing_excess import rotate_ct_scan_to_align_vertebrae
 
 # Initialize a DataFrame to store errors
 error_log = []
@@ -30,7 +29,6 @@ def preprocess_ct_scan(case_path: str, config: dict, verbose: bool = False) -> N
         ct_scan_path = os.path.join(case_path, "CT_scan_bone.nii.gz")
         segmentation_ct_path = os.path.join(case_path, "CT_scan_segmentation.nii.gz")
         case_name = os.path.basename(case_path)
-        # output_folder = os.path.join(config["output_folder"],f"CLIPPED({config['min_hu']}-{config['max_hu']})", "TIGHT")
         os.makedirs(config["output_folder"], exist_ok=True)
         output_file = os.path.join(config["output_folder"], f"{case_name}.nii.gz")
         
@@ -65,9 +63,6 @@ def preprocess_ct_scan(case_path: str, config: dict, verbose: bool = False) -> N
         # Downsample the CT scan        
         ct_scan.set_data(downsampling.downsample_ct(ct_scan.data, config["target_shape"], verbose=verbose))
 
-        # Normalize the Hounsfield units
-        #ct_scan.set_data(normalization.normalize_hu(ct_scan.data, config["min_hu"], config["max_hu"], verbose=verbose))
-
         # Convert to NIfTI and save
         file_utils.save_nifti(ct_scan.data, output_file, verbose=True)
 
@@ -86,16 +81,16 @@ def main() -> None:
     print("Starting preprocessing pipeline...")
     start_time = time.time()
     try:
-        # process_zipped_data.process_zipped_data(
-        #     config["data_zipped_folder"], 
-        #     config["data_folder"], 
-        #     config["scan_choice"],
-        #     verbose=True
-        # )
+        process_zipped_data.process_zipped_data(
+            config["data_zipped_folder"], 
+            config["data_folder"], 
+            config["scan_choice"],
+            verbose=True
+        )
 
         # Clear memory after unzipping
         gc.collect()
-        number_of_scans = 1000
+        number_of_scans = 1000 # Set a limit for the number of scans to process
         scan = 0
         for case_folder in os.listdir(config["data_folder"]):
             case_path = os.path.join(config["data_folder"], case_folder)
