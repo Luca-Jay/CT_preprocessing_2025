@@ -23,16 +23,16 @@ def remove_excess(ct_scan: tio.ScalarImage, masks: dict[str, tio.ScalarImage], c
     
     ct_scan.data[~body_mask.data.bool()] = -1000
 
-    # Expand the body mask with padding
-    skull_mask = masks["skull"]
-    skull_mask.data = binary_dilation(skull_mask.data.numpy(), iterations=config["roi_bounds"]["skull"]["padding"], ).astype(bool)
+    # # Expand the body mask with padding
+    # skull_mask = masks["skull"]
+    # skull_mask.data = binary_dilation(skull_mask.data.numpy(), iterations=config["roi_bounds"]["skull"]["padding"], ).astype(bool)
 
-    # Resample using torchio if the affines are different
-    if (skull_mask.affine != ct_scan.affine).any():
-        skull_mask = tio.Resample(ct_scan)(skull_mask)
+    # # Resample using torchio if the affines are different
+    # if (skull_mask.affine != ct_scan.affine).any():
+    #     skull_mask = tio.Resample(ct_scan)(skull_mask)
     
 
-    ct_scan.data[skull_mask.data.bool()] = 0
+    # ct_scan.data[skull_mask.data.bool()] = 0
 
     
 

@@ -57,6 +57,7 @@ def preprocess_ct_scan(case_path: str, config: dict, verbose: bool = False) -> N
             ct_scan, 
             verbose=verbose
         )
+        print(x_min_transformed, x_max_transformed)
         
         # Crop CT scan using ROI bounds
         ct_scan.set_data(ROI_cropping.crop_ct_scan(ct_scan, x_min_transformed, x_max_transformed, y_min_transformed, y_max_transformed, z_min_transformed, z_max_transformed, verbose=verbose))
